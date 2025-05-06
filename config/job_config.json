@@ -1,0 +1,151 @@
+{
+  "name": "End-to-End Data and ML Pipeline",
+  "email_notifications": {
+    "on_start": ["admin@example.com"],
+    "on_success": [],
+    "on_failure": ["admin@example.com", "team@example.com"]
+  },
+  "timeout_seconds": 7200,
+  "max_concurrent_runs": 1,
+  "tasks": [
+    {
+      "task_key": "data_ingestion",
+      "notebook_task": {
+        "notebook_path": "/notebooks/data_ingestion",
+        "base_parameters": {
+          "data_source": "s3://example-bucket/raw-data/",
+          "target_table": "raw_data"
+        }
+      },
+      "job_cluster_key": "main_job_cluster",
+      "timeout_seconds": 1800,
+      "email_notifications": {}
+    },
+    {
+      "task_key": "data_processing",
+      "notebook_task": {
+        "notebook_path": "/notebooks/data_processing",
+        "base_parameters": {
+          "input_table": "raw_data",
+          "output_table": "processed_data"
+        }
+      },
+      "job_cluster_key": "main_job_cluster",
+      "timeout_seconds": 1800,
+      "email_notifications": {},
+      "depends_on": [
+        {
+          "task_key": "data_ingestion"
+        }
+      ]
+    },
+    {
+      "task_key": "train_models",
+      "notebook_task": {
+        "notebook_path": "/notebooks/machine_learning",
+        "base_parameters": {
+          "training_table": "processed_data",
+          "experiment_name": "model_training"
+        }
+      },
+      "job_cluster_key": "ml_job_cluster",
+      "timeout_seconds": 3600,
+      "email_notifications": {},
+      "depends_on": [
+        {
+          "task_key": "data_processing"
+        }
+      ]
+    },
+    {
+      "task_key": "batch_scoring",
+      "notebook_task": {
+        "notebook_path": "/notebooks/batch_scoring",
+        "base_parameters": {
+          "model_name": "customer_churn_predictor",
+          "input_table": "prediction_input",
+          "output_table": "predictions"
+        }
+      },
+      "job_cluster_key": "ml_job_cluster",
+      "timeout_seconds": 1800,
+      "email_notifications": {},
+      "depends_on": [
+        {
+          "task_key": "train_models"
+        }
+      ]
+    },
+    {
+      "task_key": "generate_reports",
+      "notebook_task": {
+        "notebook_path": "/notebooks/reporting",
+        "base_parameters": {
+          "data_table": "predictions",
+          "report_path": "/reports/weekly_summary"
+        }
+      },
+      "job_cluster_key": "main_job_cluster",
+      "timeout_seconds": 1200,
+      "email_notifications": {},
+      "depends_on": [
+        {
+          "task_key": "batch_scoring"
+        }
+      ]
+    }
+  ],
+  "job_clusters": [
+    {
+      "job_cluster_key": "main_job_cluster",
+      "new_cluster": {
+        "spark_version": "10.4.x-scala2.12",
+        "node_type_id": "Standard_DS3_v2",
+        "num_workers": 2,
+        "autoscale": {
+          "min_workers": 2,
+          "max_workers": 8
+        },
+        "spark_conf": {
+          "spark.databricks.delta.preview.enabled": "true",
+          "spark.sql.shuffle.partitions": "200"
+        },
+        "aws_attributes": {
+          "availability": "ON_DEMAND"
+        },
+        "custom_tags": {
+          "Environment": "Production",
+          "Project": "Customer Churn Analysis"
+        }
+      }
+    },
+    {
+      "job_cluster_key": "ml_job_cluster",
+      "new_cluster": {
+        "spark_version": "10.4.x-gpu-ml-scala2.12",
+        "node_type_id": "g4dn.xlarge",
+        "num_workers": 2,
+        "autoscale": {
+          "min_workers": 2,
+          "max_workers": 4
+        },
+        "spark_conf": {
+          "spark.databricks.delta.preview.enabled": "true",
+          "spark.sql.shuffle.partitions": "200"
+        },
+        "aws_attributes": {
+          "availability": "ON_DEMAND"
+        },
+        "custom_tags": {
+          "Environment": "Production",
+          "Project": "Customer Churn Analysis"
+        }
+      }
+    }
+  ],
+  "tags": {
+    "Environment": "Production",
+    "Project": "Customer Churn Analysis"
+  },
+  "format": "MULTI_TASK"
+} 
